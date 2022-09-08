@@ -25,26 +25,38 @@ class Gossip(Device):
         self._secrets = set([index])
 
     def run(self):
-        # the following is your termination condition, but where should it be placed?
-        # if len(self._secrets) == self.number_of_devices():
-        #    return
+        # the optimal solution is to "loop" through the devices twice, each time sending a message to the next one
+        # in the second loop, we stop before reaching the last device, as it already has all the secrets
 
-        while len(self._secrets) < self.index():
+        # first loop
+        while len(self._secrets) < self.index() + 1:
+            ingoing: GossipMessage = self.medium().receive()
+            if ingoing:
+                self.add_secrets(ingoing.secrets)
 
-        for device in range(self.number_of_devices()):
-            message = GossipMessage(self.index(), device, self._secrets)
-            self.medium().send(message)
-            while True:
-                ingoing: GossipMessage = self.medium().receive()
-                if ingoing is None:
-                    break
-                else:
-                    self._secrets.update(ingoing.secrets)
+        neighbour = self.index() + 1
+        if self.index() == self.number_of_devices() - 1:
+            neighbour = 0
+        message = GossipMessage(self.index(), neighbour, self._secrets)
+        self.medium().send(message)
+
+        # second loop
+        if self.index() == self.number_of_devices() - 1:
+            # this is the last device, we're done
+            return
 
         while len(self._secrets) < self.number_of_devices():
             ingoing: GossipMessage = self.medium().receive()
             if ingoing:
                 self.add_secrets(ingoing.secrets)
+
+        if self.index() == self.number_of_devices() - 2:
+            # this is the penultimate device, we're done
+            return
+
+        neighbour = self.index() + 1
+        message = GossipMessage(self.index(), neighbour, self._secrets)
+        self.medium().send(message)
 
     def print_result(self):
         print(f'\tDevice {self.index()} got secrets: {self._secrets}')
